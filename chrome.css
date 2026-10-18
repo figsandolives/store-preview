@@ -185,3 +185,9 @@ html.picker-mode .site-header .header-inner{grid-template-columns:auto minmax(0,
 /* النتائج بعرض الصف كامل (البحث + الترجمة) */
 .home-tools{position:relative}
 .home-search{position:static}
+
+/* صفحة الغلاف: زر الرجوع مكان القائمة والشعار (يمين)، واسم الغلاف بعده، والسلة يسار */
+body.cover-mode .site-header .side-menu-toggle,
+body.cover-mode .site-header .brand{display:none}
+body.cover-mode .site-header .header-inner{grid-template-columns:minmax(0,1fr) auto}
+body.cover-mode .header-cover{justify-content:flex-start}
