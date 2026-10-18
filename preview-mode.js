@@ -21,7 +21,7 @@
     const note = document.createElement('div');
     note.className = 'preview-note';
     note.setAttribute('role', 'note');
-    note.innerHTML = 'نسخة معاينة للتصميم الجديد · الطلبات مقفلة · <a href="https://figsolives.online/">الموقع الرسمي</a>';
+    note.innerHTML = 'معاينة · الطلبات مقفلة <a href="https://figsolives.online/">الموقع الرسمي</a>';
     document.body.append(note);
   });
 })();
