@@ -157,8 +157,6 @@ body.cover-mode #categories,body.cover-mode #headingNavigation{transition:opacit
   .catalog-worlds{width:calc(100% - 24px);margin-bottom:24px}
   .cover-back{padding:8px 13px;font-size:12px}
 }
-.categories .cover-bar-back{position:sticky;inset-inline-start:0;z-index:3;flex:0 0 auto;width:82px;justify-content:center;padding-inline:8px;box-shadow:8px 0 0 var(--paper,#fffefb)}
-body.cover-mode .category-menu-toggle{inset-inline-start:90px}
 
 /* ---------- غلاف «صور المنتجات المتحركة» ----------
    صفوف من صور المنتجات تمشي بعكس بعض بزاوية خفيفة.

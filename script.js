@@ -43,7 +43,7 @@ const persistentStorageReady = requestPersistentStorage();
 
 const translations = {
   ar: {
-    brand: "مخبز التين والزيتون", tagline: "طبيعي، صحي، مصنوع بحب", yourCart: "سلتك",
+    brand: "مخبز التين والزيتون", restaurantName: "مطعم التين الطبيعي", back: "رجوع", menu: "القائمة", browseCovers: "تصفّح", tagline: "طبيعي، صحي، مصنوع بحب", yourCart: "سلتك",
     deliveryEverywhere: "توصيل لجميع مناطق الكويت", heroTitle: "أكل صحي بطعم<br>يستحق التكرار",
     heroText: "اختر من منتجاتنا الطبيعية والمخبوزات الطازجة، ونحن نتكفل بالباقي.",
     naturalIngredients: "مكونات طبيعية", dailyPreparation: "تحضير يومي", securePayment: "دفع آمن",
@@ -109,7 +109,7 @@ const translations = {
     noZoom: ""
   },
   en: {
-    brand: "Figs & Olives Bakery", tagline: "Natural, healthy, made with love", yourCart: "Cart",
+    brand: "Figs & Olives Bakery", restaurantName: "Natural Figs Restaurant", back: "Back", menu: "Menu", browseCovers: "Browse", tagline: "Natural, healthy, made with love", yourCart: "Cart",
     deliveryEverywhere: "Delivery across Kuwait", heroTitle: "Healthy food with a taste<br>worth repeating",
     heroText: "Choose from our natural products and fresh bakes, and we will handle the rest.",
     naturalIngredients: "Natural ingredients", dailyPreparation: "Prepared daily", securePayment: "Secure payment",
@@ -1170,6 +1170,7 @@ function applyLanguage() {
   $$("[data-i18n-html]").forEach(element => element.innerHTML = tr(element.dataset.i18nHtml));
   $$("[data-i18n-placeholder]").forEach(element => element.placeholder = tr(element.dataset.i18nPlaceholder));
   $("#languageLabel").textContent = state.lang === "ar" ? "English" : "العربية";
+  $$(".lang-label").forEach(label => { label.textContent = state.lang === "ar" ? "English" : "العربية"; });
   renderQualityStrip();
   applyStoreAppearance(state.catalogAppearance);
   renderCatalogSwitch();
@@ -1344,8 +1345,7 @@ function renderCategories() {
   });
   const menuLabel = state.lang === "ar" ? "كل الأقسام" : "All categories";
   const menuOpen = !$("#categoryMenu")?.classList.contains("hidden");
-  const coverBarBack = activeCover() ? `<button type="button" class="cover-bar-back" data-cover-back aria-label="${state.lang === "ar" ? "رجوع" : "Back"}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6l6 6-6 6"/></svg><span>${state.lang === "ar" ? "رجوع" : "Back"}</span></button>` : "";
-  $("#categories").innerHTML = coverBarBack + `<button type="button" class="category-menu-toggle" id="categoryMenuToggle" aria-label="${menuLabel}" aria-haspopup="true" aria-controls="categoryMenu" aria-expanded="${menuOpen}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6.5h16M4 12h16M4 17.5h16"/></svg></button>` + buttons.join("");
+  $("#categories").innerHTML = `<button type="button" class="category-menu-toggle" id="categoryMenuToggle" aria-label="${menuLabel}" aria-haspopup="true" aria-controls="categoryMenu" aria-expanded="${menuOpen}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6.5h16M4 12h16M4 17.5h16"/></svg></button>` + buttons.join("");
   renderCategoryMenu(entries);
   updateHeadingNavigation();
   syncHeadingNavigationOffset();
@@ -1650,6 +1650,7 @@ function coverBannerMarkup(cover) {
 // The section bar stays hidden while the cover banner is on screen and appears once it scrolls away.
 function updateCoverBannerVisibility() {
   const banner = activeCover() ? $("#coverStage .world-cover") : null;
+  if (!banner) return;
   const visible = Boolean(banner) && banner.getBoundingClientRect().bottom > ($(".site-header")?.offsetHeight || 0);
   if (document.body.classList.contains("cover-banner-visible") === visible) return;
   document.body.classList.toggle("cover-banner-visible", visible);
@@ -1660,11 +1661,15 @@ window.addEventListener("resize", updateCoverBannerVisibility, { passive: true }
 function renderCoverStage() {
   const cover = activeCover();
   document.body.classList.toggle("cover-mode", Boolean(cover));
+  // صفحة الغلاف تبدأ بالأقسام والمنتجات على طول؛ الهيدر يعرض «رجوع» واسم الغلاف بدل اسم المخبز.
   const stage = $("#coverStage");
-  if (stage) stage.innerHTML = cover ? coverBannerMarkup(cover) : "";
-  $("#coverBack")?.classList.toggle("hidden", !cover);
-  updateCoverBannerVisibility();
+  if (stage) stage.innerHTML = "";
+  document.body.classList.remove("cover-banner-visible");
+  $("#headerTitle")?.classList.toggle("hidden", Boolean(cover));
+  $("#headerCover")?.classList.toggle("hidden", !cover);
+  if ($("#headerCoverName")) $("#headerCoverName").textContent = cover ? coverText(cover, "name") : "";
   if (cover) document.title = `${coverText(cover, "name")} — ${state.lang === "ar" ? "مخبز التين والزيتون" : "Figs & Olives"}`;
+  syncHeadingNavigationOffset();
 }
 
 function coverIdFromUrl() { return String(new URLSearchParams(location.search).get("cover") || ""); }
@@ -1790,6 +1795,7 @@ function renderSearchResults() {
 }
 
 function openHeaderSearch() {
+  $("#homeTools")?.scrollIntoView({ block: "start", behavior: "smooth" });
   $("#searchPopover").classList.remove("hidden");
   $("#searchToggle").setAttribute("aria-expanded", "true");
   renderSearchResults();
@@ -3841,8 +3847,11 @@ $("#searchToggle").onclick = event => {
 $("#searchPopover").onclick = event => event.stopPropagation();
 $("#searchInput").oninput = event => {
   state.search = event.target.value;
+  // البحث صار خانة ثابتة فوق الشريط: النتائج تطلع تحتها أول ما تكتب.
+  $("#searchPopover").classList.toggle("hidden", !state.search.trim());
   renderSearchResults();
 };
+$("#searchInput").onfocus = () => { if (state.search.trim()) $("#searchPopover").classList.remove("hidden"); };
 $("#searchResults").onclick = event => {
   const addButton = event.target.closest("[data-search-add]");
   if (addButton) {
@@ -4363,3 +4372,60 @@ if (PICKER_MODE) {
   new MutationObserver(syncPickerMarks).observe(document.body, { childList: true, subtree: true });
   window.parent?.postMessage({ type: "fo-picker-ready" }, location.origin);
 }
+
+
+// ---------- القائمة الجانبية (زر الثلاث خطوط) ----------
+// أولها الدخول (أو حسابي لما يكون مسجل)، بعدها الأغلفة، وبالأخير الترجمة.
+const sideMenuIcons = {
+  login: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4.25 4.25 0 1 0 0-8.5 4.25 4.25 0 0 0 0 8.5Zm7.25 8.5a7.25 7.25 0 0 0-14.5 0"/></svg>',
+  home: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5h-5v5H5a1 1 0 0 1-1-1z"/></svg>'
+};
+function renderSideMenu() {
+  const account = $("#sideMenuAccount"), coversHost = $("#sideMenuCovers");
+  if (!account || !coversHost) return;
+  const ar = state.lang === "ar";
+  account.innerHTML = state.user?.name
+    ? `<div class="side-menu-user"><small>${escapeHtml(tr("welcome"))}</small><strong>${escapeHtml(state.user.name)}</strong></div>
+       <button type="button" data-side-account="info">${accountIcons.info}<span>${tr("myInfo")}</span></button>
+       <button type="button" data-side-account="addresses">${accountIcons.address}<span>${tr("myAddresses")}</span></button>
+       <button type="button" data-side-account="orders">${accountIcons.order}<span>${tr("myOrders")}</span></button>
+       <button type="button" class="logout" data-side-account="logout">${accountIcons.logout}<span>${tr("logout")}</span></button>`
+    : `<button type="button" class="side-menu-login" data-side-account="login">${sideMenuIcons.login}<span>${tr("login")}</span></button>`;
+  const covers = visibleCovers();
+  coversHost.classList.toggle("hidden", !covers.length);
+  coversHost.innerHTML = covers.length ? `<h3>${escapeHtml(tr("browseCovers"))}</h3>
+    <button type="button" data-side-cover="" class="${activeCover() ? "" : "active"}">${sideMenuIcons.home}<span>${ar ? "الرئيسية" : "Home"}</span></button>
+    ${covers.map(cover => `<button type="button" data-side-cover="${escapeHtml(cover.id)}" class="${state.activeCoverId === cover.id ? "active" : ""}">${coverMenuImage(cover) ? `<img src="${escapeHtml(coverMenuImage(cover))}" alt="" loading="lazy">` : `<i></i>`}<span>${escapeHtml(coverText(cover, "name"))}</span></button>`).join("")}` : "";
+}
+// A moving-photos cover has no single photo: the menu shows its first product photo.
+function coverMenuImage(cover) {
+  if (cover.image && cover.imageMode !== "animated") return cover.image;
+  const first = coverProducts(cover).map(item => productImages(item)[0]).find(Boolean);
+  return first ? thumbnailUrl(first) : cover.image;
+}
+function setSideMenu(open) {
+  const layer = $("#sideMenu");
+  if (!layer) return;
+  if (open) renderSideMenu();
+  layer.classList.toggle("hidden", !open);
+  layer.setAttribute("aria-hidden", String(!open));
+  $("#sideMenuToggle")?.setAttribute("aria-expanded", String(open));
+  document.documentElement.classList.toggle("side-menu-open", open);
+}
+$("#sideMenuToggle")?.addEventListener("click", () => setSideMenu(true));
+$("#sideMenu")?.addEventListener("click", event => {
+  if (event.target.closest("[data-side-menu-close]")) return setSideMenu(false);
+  const accountAction = event.target.closest("[data-side-account]")?.dataset.sideAccount;
+  if (accountAction) {
+    setSideMenu(false);
+    if (accountAction === "login") return openAuth("login");
+    if (accountAction === "logout") return logout();
+    return openAccountDrawer(accountAction);
+  }
+  const coverButton = event.target.closest("[data-side-cover]");
+  if (coverButton) { setSideMenu(false); openCover(coverButton.dataset.sideCover); }
+});
+document.addEventListener("keydown", event => { if (event.key === "Escape" && !$("#sideMenu")?.classList.contains("hidden")) setSideMenu(false); });
+$("#homeLanguageToggle")?.addEventListener("click", () => setLanguage(state.lang === "ar" ? "en" : "ar"));
+$("#languageToggle")?.addEventListener("click", () => { if (!$("#sideMenu")?.classList.contains("hidden")) setTimeout(renderSideMenu, 0); });
+$("#brandHome")?.addEventListener("click", event => { event.preventDefault(); if (activeCover()) openCover(""); else window.scrollTo({ top: 0, behavior: "smooth" }); });
