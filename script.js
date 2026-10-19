@@ -2571,6 +2571,7 @@ function syncProductRoute() {
   } else if (state.detailProductId) {
     closeProductPage(false);
   }
+  updateDocumentTitle();
 }
 
 function setAuthMessage(message, success = false) {
