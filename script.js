@@ -1725,7 +1725,7 @@ function renderProductSections() {
           <div class="product-grid">${matches.map(item => productCard(item, category)).join("")}</div>
         </section>`);
     });
-    $("#productSections").innerHTML = sections.length ? sections.join("") : `<div class="loading">${tr("noResults")}</div>`;
+    $("#productSections").innerHTML = sections.length ? sections.join("") : (!activeCover() && (state.covers || []).length ? "" : `<div class="loading">${tr("noResults")}</div>`);
     renderCatalogWorlds();
     renderCoverStage();
     observeImages();
@@ -1760,7 +1760,7 @@ function renderProductSections() {
     const groupMarkup = groups.map(group => { const linked = (group.categoryIds || []).map(id => ordered.find(category => sameCatalogId(category.id, id))).filter(Boolean); linked.forEach(category => used.add(category.id)); if (!linked.length) return ""; return `<section class="catalog-subheading-group" data-subheading-section="${escapeHtml(group.id || "")}">${linked.map(renderCategory).join("")}</section>`; }).join("");
     if (groupMarkup) sections.push(`<section class="catalog-heading-group" id="heading-${encodeURIComponent(item.id)}" data-heading-section="${escapeHtml(item.id)}">${groupMarkup}</section>`);
   });
-  $("#productSections").innerHTML = sections.length ? sections.join("") : `<div class="loading">${tr("noResults")}</div>`;
+  $("#productSections").innerHTML = sections.length ? sections.join("") : (!activeCover() && (state.covers || []).length ? "" : `<div class="loading">${tr("noResults")}</div>`);
   renderCatalogWorlds();
   renderCoverStage();
   observeImages();

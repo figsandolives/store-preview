@@ -191,3 +191,5 @@ body.cover-mode .site-header .side-menu-toggle,
 body.cover-mode .site-header .brand{display:none}
 body.cover-mode .site-header .header-inner{grid-template-columns:minmax(0,1fr) auto}
 body.cover-mode .header-cover{justify-content:flex-start}
+/* الصفحة الرئيسية ما فيها أقسام (الأغلفة بس)، فما تبقى مساحة فاضية قبل التذييل */
+.product-sections:empty{display:none}
