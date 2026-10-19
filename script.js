@@ -13,16 +13,43 @@ function orderingApiUrl(path) {
   return `${orderingApiBaseUrl}${path}`;
 }
 
-async function orderingApi(path, options = {}, requireSession = false) {
+async function orderingApi(path, options = {}, requireSession = false, retried = false) {
   const headers = { "Accept": "application/json", ...(options.headers || {}) };
   if (requireSession) {
+    if (!customerSessionToken) await restoreLegacyCustomerSession();
     if (!customerSessionToken) throw new Error("سجّل دخولك أولاً");
     headers.Authorization = `Bearer ${customerSessionToken}`;
   }
   const response = await fetch(orderingApiUrl(path), { ...options, headers, cache: "no-store" });
   const data = await response.json().catch(() => ({}));
+  // جلسة منتهية لعميل ما زال داخلاً على جهازه: نجدد الجلسة ونعيد الطلب مرة واحدة.
+  if (response.status === 401 && requireSession && !retried) {
+    customerSessionToken = "";
+    localStorage.removeItem("figsOlivesCustomerSession");
+    if (await restoreLegacyCustomerSession()) return orderingApi(path, options, true, true);
+  }
   if (!response.ok) throw new Error(data.error || data.message || "تعذر الاتصال بخدمة المنصة");
   return data;
+}
+
+// الأجهزة التي سجّلت الدخول قبل رمز الواتساب تحفظ رقم العميل فقط، فنطلب لها
+// جلسة لحسابها المسجل. تسجيل الخروج ثم الدخول من جديد يمر برمز الواتساب.
+let legacySessionRequest = null;
+function restoreLegacyCustomerSession() {
+  // وضع الاختيار داخل الإدارة ما يسجل دخول ولا يرسل شي للسيرفر.
+  if (PICKER_MODE) return Promise.resolve(false);
+  const phone = normalizePhone(state.user?.phone);
+  if (phone.length !== 8) return Promise.resolve(false);
+  legacySessionRequest ||= fetch(orderingApiUrl("/auth/legacy-session"), {
+    method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" },
+    body: JSON.stringify({ phone }), cache: "no-store"
+  }).then(async response => {
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || normalizePhone(state.user?.phone) !== phone) return false;
+    saveCustomerSession(data, phone);
+    return true;
+  }).catch(() => false).finally(() => { legacySessionRequest = null; });
+  return legacySessionRequest;
 }
 
 // نطلب من المتصفح حفظ مساحة الموقع بشكل دائم قدر الإمكان. هذا مهم خصوصاً
@@ -1676,8 +1703,11 @@ function renderCoverStage() {
 }
 
 function coverIdFromUrl() { return String(new URLSearchParams(location.search).get("cover") || ""); }
+// مكان الصفحة الرئيسية قبل الدخول لغلاف، عشان «رجوع» يرجّع لنفس المكان.
+let homeScrollY = 0;
 function openCover(coverId, { push = true } = {}) {
   const cover = (state.covers || []).find(item => item.id === coverId) || null;
+  if (cover && !activeCover()) homeScrollY = window.scrollY;
   state.activeCoverId = cover ? cover.id : "";
   if (push) {
     const url = new URL(location.href);
@@ -1689,7 +1719,10 @@ function openCover(coverId, { push = true } = {}) {
   if (!cover) applyLanguage();
   renderCategories();
   renderProductSections();
-  window.scrollTo({ top: 0, behavior: "auto" });
+  const top = cover ? 0 : homeScrollY;
+  window.scrollTo({ top, behavior: "auto" });
+  // The covers grid may still be laying out: settle the position once more.
+  if (top) setTimeout(() => { if (!activeCover()) window.scrollTo({ top, behavior: "auto" }); }, 60);
 }
 window.addEventListener("popstate", () => openCover(coverIdFromUrl(), { push: false }));
 
@@ -4312,7 +4345,7 @@ async function initializeStoreData() {
   if (state.user?.phone) {
     rememberSession(state.user.phone);
     requestPersistentStorage();
-    hydrateUserFromServer();
+    (customerSessionToken ? Promise.resolve() : restoreLegacyCustomerSession()).then(hydrateUserFromServer);
   } else {
     await restoreSavedCustomerSession();
   }
