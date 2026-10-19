@@ -1171,6 +1171,7 @@ function applyLanguage() {
   $$("[data-i18n-placeholder]").forEach(element => element.placeholder = tr(element.dataset.i18nPlaceholder));
   $("#languageLabel").textContent = state.lang === "ar" ? "English" : "العربية";
   $$(".lang-label").forEach(label => { label.textContent = state.lang === "ar" ? "English" : "العربية"; });
+  renderFooter();
   renderQualityStrip();
   applyStoreAppearance(state.catalogAppearance);
   renderCatalogSwitch();
@@ -1576,6 +1577,8 @@ function coveredKeys() {
 // Which catalogue entries this page shows: the open cover's, or what no cover holds.
 function entryVisibleHere(type, id) {
   if (PICKER_MODE) return true;
+  // الصفحة الرئيسية ما تعرض إلا الأغلفة: أي قسم برا الأغلفة ما يطلع في الموقع.
+  if (!activeCover() && (state.covers || []).length) return false;
   const cover = activeCover();
   if (cover?.filtered) return type === "category";
   if (cover) return type === "heading" ? cover.items.some(item => item.type === "heading" && sameCatalogId(item.id, id)) : coverCategoryIds(cover).some(value => sameCatalogId(value, id));
@@ -1763,10 +1766,16 @@ function renderProductSections() {
   observeImages();
 }
 
+// Products that live in a cover: only these show on the site (and in search).
+function coveredProductIds() {
+  if (!(state.covers || []).length) return null;
+  return new Set((state.covers || []).flatMap(cover => coverProducts(cover)).map(item => String(item.id)));
+}
 function matchingSearchProducts(query) {
   const normalized = String(query || "").trim().toLocaleLowerCase();
   if (!normalized) return [];
-  return state.products.filter(item =>
+  const allowed = PICKER_MODE ? null : coveredProductIds();
+  return state.products.filter(item => (!allowed || allowed.has(String(item.id))) &&
     [item.name, item.nameEn, item.description, item.descriptionEn]
       .filter(Boolean)
       .join(" ")
@@ -4429,3 +4438,66 @@ document.addEventListener("keydown", event => { if (event.key === "Escape" && !$
 $("#homeLanguageToggle")?.addEventListener("click", () => setLanguage(state.lang === "ar" ? "en" : "ar"));
 $("#languageToggle")?.addEventListener("click", () => { if (!$("#sideMenu")?.classList.contains("hidden")) setTimeout(renderSideMenu, 0); });
 $("#brandHome")?.addEventListener("click", event => { event.preventDefault(); if (activeCover()) openCover(""); else window.scrollTo({ top: 0, behavior: "smooth" }); });
+
+
+// ---------- التذييل ----------
+// المعلومات من صفحة روابطنا وفروعنا (figsolives.online/qr) و«من نحن».
+function renderFooter() {
+  const host = document.getElementById("siteFooter");
+  if (!host || PICKER_MODE) return;
+  const ar = state.lang === "ar";
+  const icon = {
+    pin: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11Z"/><circle cx="12" cy="10" r="2.4"/></svg>',
+    wa: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 19.5 5.6 16A7.8 7.8 0 1 1 8.4 18.6Z"/><path d="M9.2 8.8c.2 2.6 2.4 4.9 5 5.2l1-1.2-1.6-.9-.7.6c-.9-.4-1.6-1.1-2-2l.6-.7-.9-1.6Z"/></svg>',
+    ig: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="4.5"/><circle cx="12" cy="12" r="3.6"/><circle cx="16.6" cy="7.4" r=".6"/></svg>',
+    tt: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4v10.2a3.3 3.3 0 1 1-2.7-3.2"/><path d="M14 4c.4 2.3 2 3.9 4.5 4.2"/></svg>',
+    web: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.4 2.3 3.6 5.1 3.6 8.5s-1.2 6.2-3.6 8.5c-2.4-2.3-3.6-5.1-3.6-8.5s1.2-6.2 3.6-8.5Z"/></svg>'
+  };
+  const branches = [
+    { ar: "المطبخ الرئيسي", en: "Main kitchen", addressAr: "حولي، شارع تونس، مجمع علي فهد الخالد، دور الميزانين", addressEn: "Hawally, Tunis St., Ali Fahad Al-Khaled Complex, Mezzanine", map: "https://maps.app.goo.gl/qa5RhW2H1cPWFwzx8?g_st=awb" },
+    { ar: "فرع اليرموك", en: "Yarmouk branch", addressAr: "اليرموك، ق٢، شارع ٢، بجانب بوابة فرع الجمعية", addressEn: "Yarmouk, Block 2, Street 2, next to the co-op gate", map: "https://maps.app.goo.gl/4sphxVX9DsJFUB5u6?g_st=awb" },
+    { ar: "فرع أبو الحصانية", en: "Abu Al-Hasaniya branch", addressAr: "أبو الحصانية، مول ٣٠، مقابل طريق الفحيحيل السريع", addressEn: "Abu Al-Hasaniya, Mall 30, facing Fahaheel Expressway", map: "https://maps.app.goo.gl/N8WgcZHLoS1QC5Dj9?g_st=awb" }
+  ];
+  const contacts = [
+    { ar: "فرع التوصيل", en: "Delivery", phone: "96566906605" },
+    { ar: "فرع اليرموك", en: "Yarmouk branch", phone: "96565162277" },
+    { ar: "فرع أبو الحصانية", en: "Abu Al-Hasaniya branch", phone: "96599176512" }
+  ];
+  const accounts = [
+    { ar: "مخبز التين والزيتون", en: "Figs & Olives Bakery", handle: "figsolives.kw", instagram: "https://www.instagram.com/figsolives.kw/", tiktok: "https://www.tiktok.com/@figsolives.kw" },
+    { ar: "مطعم التين الطبيعي", en: "Natural Figs Restaurant", handle: "natural_figs", instagram: "https://www.instagram.com/natural_figs/", tiktok: "https://www.tiktok.com/@natural_figs" }
+  ];
+  const about = ar
+    ? "نحن مخبز ومطعم يطحنان الحبوب الكاملة من القمح والشعير والشوفان والدخن، ثم يصنعان الخبز والفطائر بإضافة الخميرة الطبيعية والنكهات الطبيعية من خضار وفواكه وبهارات لتزيد القيمة الغذائية للخبزة. ولأن هدفنا الصحة فنحن لا نضيف مواد حافظة أو ملونة أو معلبة أو محسنة للطعم، ولا نستخدم الطحين الأبيض أو السكر أو الخميرة الصناعية أو الدهون المهدرجة، ونختار أجود المواد وأغلاها لصناعة منتجاتنا."
+    : "We are a bakery and restaurant that mill whole grains — wheat, barley, oats and millet — then make our bread and pastries with natural sourdough and natural flavours from vegetables, fruits and spices to add nutritional value. Because our goal is health, we add no preservatives, colourings, canned ingredients or flavour enhancers, and we never use white flour, sugar, commercial yeast or hydrogenated fats. We choose the finest, most precious ingredients for everything we make.";
+  const promises = ar ? ["حبوب كاملة نطحنها بأنفسنا", "خميرة طبيعية", "بدون مواد حافظة"] : ["Whole grains we mill ourselves", "Natural sourdough", "No preservatives"];
+  const formatPhone = phone => `+965 ${phone.slice(3, 7)} ${phone.slice(7)}`;
+  const year = new Date().getFullYear();
+  host.innerHTML = `
+    <div class="footer-inner">
+      <section class="footer-about">
+        <div class="footer-brand"><img src="logo.png" alt=""><div><strong>${ar ? "مخبز التين والزيتون" : "Figs & Olives Bakery"}</strong><span><i>&amp;</i> ${ar ? "مطعم التين الطبيعي" : "Natural Figs Restaurant"}</span></div></div>
+        <h2>${ar ? "من نحن" : "About us"}</h2>
+        <p>${escapeHtml(about)}</p>
+        <ul class="footer-promises">${promises.map(text => `<li>${escapeHtml(text)}</li>`).join("")}</ul>
+      </section>
+      <section class="footer-col">
+        <h2>${ar ? "فروعنا" : "Our branches"}</h2>
+        <ul class="footer-branches">${branches.map(branch => `<li><a href="${branch.map}" target="_blank" rel="noopener">${icon.pin}<span><b>${escapeHtml(ar ? branch.ar : branch.en)}</b><small>${escapeHtml(ar ? branch.addressAr : branch.addressEn)}</small></span></a></li>`).join("")}</ul>
+      </section>
+      <section class="footer-col">
+        <h2>${ar ? "تواصل معنا" : "Contact us"}</h2>
+        <ul class="footer-contacts">${contacts.map(contact => `<li><a href="https://wa.me/${contact.phone}" target="_blank" rel="noopener">${icon.wa}<span><b>${escapeHtml(ar ? contact.ar : contact.en)}</b><small dir="ltr">${formatPhone(contact.phone)}</small></span></a></li>`).join("")}</ul>
+      </section>
+      <section class="footer-col">
+        <h2>${ar ? "حساباتنا" : "Follow us"}</h2>
+        <ul class="footer-accounts">${accounts.map(account => `<li><b>${escapeHtml(ar ? account.ar : account.en)}</b><span class="footer-social"><a href="${account.instagram}" target="_blank" rel="noopener" aria-label="Instagram ${account.handle}">${icon.ig}</a><a href="${account.tiktok}" target="_blank" rel="noopener" aria-label="TikTok ${account.handle}">${icon.tt}</a><small dir="ltr">@${account.handle}</small></span></li>`).join("")}</ul>
+        <a class="footer-site" href="https://figsolives.online/" target="_blank" rel="noopener">${icon.web}<span dir="ltr">figsolives.online</span></a>
+      </section>
+    </div>
+    <div class="footer-bottom">
+      <p class="footer-motto">${ar ? "صحتك أغلى ما تملك .. فتناول طعاماً صحياً" : "Your health is your most precious asset — eat well."}</p>
+      <small>© ${year} ${ar ? "مخبز التين والزيتون ومطعم التين الطبيعي" : "Figs & Olives Bakery · Natural Figs Restaurant"}</small>
+    </div>`;
+}
+renderFooter();
